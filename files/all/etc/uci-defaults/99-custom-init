@@ -1,0 +1,97 @@
+#!/bin/sh
+
+# 方便安卓原生tv用户联网 增加安卓自定义域名
+add_dhcp_domain() {
+    local domain_name="time.android.com"
+    local domain_ip="203.107.6.88"
+
+    # 检查是否存在相同的域名记录
+    existing_records=$(uci show dhcp | grep "dhcp.@domain\[[0-9]\+\].name='$domain_name'")
+    if [ -z "$existing_records" ]; then
+        # 添加新的域名记录
+        uci add dhcp domain
+        uci set "dhcp.@domain[-1].name=$domain_name"
+        uci set "dhcp.@domain[-1].ip=$domain_ip"
+        uci commit dhcp
+    else
+        echo "Domain $domain_name already exists."
+    fi
+}
+
+# 修改默认网关地址
+change_default_ip() {
+    local new_ip="10.0.0.1"
+
+    # 修改网络配置中的默认 IP 地址
+    uci set network.lan.ipaddr="$new_ip"
+    uci commit network
+
+    # 修改 dhcp 配置中的默认 IP 地址
+    uci set dhcp.lan.start='90'
+    uci set dhcp.lan.limit='230'
+    uci commit dhcp
+}
+
+# 设置默认wan口也能直接访问webui  裝在虛擬機才要打開
+#set_firewall_wan_open() {
+#    # 设置防火墙 WAN 区域的输入策略为 ACCEPT
+#    uci set firewall.@zone[1].input='ACCEPT'
+#    uci commit firewall
+#}
+
+# 设置主机名信息iStoreNAS
+change_hostname() {
+    local new_hostname="OliFamily-iStore"
+
+    # 设置主机名
+    uci set system.@system[0].hostname="$new_hostname"
+    uci commit system
+
+    # 同时更改 /proc/sys/kernel/hostname 文件
+    echo "$new_hostname" > /proc/sys/kernel/hostname
+}
+
+# 追加编译作者信息
+modify_firmware_description() {
+    # 修改 /etc/openwrt_release 文件中的 DISTRIB_DESCRIPTION 字段
+    sed -i "s/\(DISTRIB_DESCRIPTION='.*\)'/\1 Compiled by David888.Chiang'/" /etc/openwrt_release
+}
+# 追加命令行banner信息
+modify_banner_info() {
+    append_text=" Compiled by David888.Chiang And U can bash tv.sh"
+    awk -v append_text="$append_text" '
+    {
+        lines[NR] = $0
+        count = NR
+    }
+    END {
+        for (i = 1; i <= count; i++) {
+            print lines[i]
+            if (i == count - 1) {
+                print append_text
+            }
+        }
+    }
+' /etc/banner > /etc/banner.tmp && mv /etc/banner.tmp /etc/banner
+}
+
+# 调用函数 add_dhcp_domain
+add_dhcp_domain
+
+# 调用函数 change_default_ip
+change_default_ip
+
+# 调用函数 set_firewall_wan_open
+set_firewall_wan_open
+
+# 调用函数 change_hostname
+change_hostname
+
+# 调用函数 modify_firmware_description
+modify_firmware_description
+
+# 调用函数 modify_banner_info
+modify_banner_info
+
+# 移除脚本文件以确保它只运行一次
+rm -f /etc/uci-defaults/99-custom-init

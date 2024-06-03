@@ -1,0 +1,10 @@
+nginx
+nginx-mod-luci
+routergo
+luci-app-routerdog
+app-meta-routerdog
+luci-app-store
+app-meta-alist
+app-meta-homebox
+app-meta-systools
+app-meta-poweroff
